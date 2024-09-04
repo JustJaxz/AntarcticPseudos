@@ -163,17 +163,31 @@ bubble_plot <- ggplot(site_info, aes(x = siteID, y = year, size = Pseudo_ASVs, c
 print(bubble_plot)
 
 
-#----------- Relative Abundance Plot -----------#
-# Relative abundance plot for the division level
+#------------------------------#
+#--- Cape Evans Time Series ---#
 
-# Transform sample counts to relative abundance
-v9.ice.prop <- transform_sample_counts(v9.ice.emc, function(x) x / sum(x))
+# Step 1: Filter the data for sites starting with "H1" and "P5" and for ASV1 only
+filtered_data <- melted_data %>%
+  filter(grepl("^H1|^P5", siteID) & ASV == "ASV1")
 
-# Plot the relative abundance at the division level
-division_plot <- plot_bar(v9.ice.prop, fill = "R8") +
-  facet_wrap(~siteID, scales = "free_x") +  # Adjust the layout of facets
-  labs(x = "Site ID", y = "Relative Abundance", fill = "Division") +
-  scale_fill_manual(values = division_colours) +  # Apply custom colors
-  theme_minimal()
+# Step 2: Create a time series plot for ASV1 abundance at each site
+timeSeries <- ggplot(filtered_data, aes(x = year, y = Abundance, color = siteID, group = siteID)) +
+  geom_line() +           # Line plot for the time series with specified line thickness
+  geom_point(size = 3) +          # Points to mark the data points
+  labs(
+    title = "Pseudo-nitzschia ASV1 Abundance Over Time at Selected Sites",
+    x = "Year",
+    y = "Abundance",
+    color = "Site ID"
+  ) +
+  theme_minimal() +               # Use a minimal theme as a base
+  theme(
+    panel.grid = element_blank(),                   # Remove the background grid
+    axis.line = element_line(color = "black"),      # Add x and y axis lines
+    axis.ticks = element_line(color = "black"),     # Add axis ticks
+    axis.ticks.length = unit(0.2, "cm"),            # Set tick marks length
+    axis.text.x = element_text(angle = 45, hjust = 1) # Rotate x-axis labels
+  )
 
-print(division_plot)
+print(timeSeries)
+  
