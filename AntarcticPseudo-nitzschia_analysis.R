@@ -58,12 +58,6 @@ polarsites <- c("H1", "H3", "H4", "H5", "H6", "H7", "B01", "A01", "P7", "P8", "P
 taxo.divisions <- c("Domain", "Supergroup", "Division", "Sub-division", "Class", "Order", "Family", "Genus", "Species")
 #Genera of interest
 emc.genus <- c("Pseudo-nitzschia")
-emc.classes <- c("Dinophyceae", "Bacillariophyceae", "Coscinodiscophyceae", "Mediophyceae", "Chlorodendrophyceae", "Chlorophyceae", 
-                 "Chloropicophyceae", "Mamiellophyceae", "Nephroselmidophyceae", "Pedinophyceae", "Trebouxiophyceae", "Pedinophyceae", 
-                 "Picocystophyceae", "Prasinophyceae", "Pyramimonadophyceae", "Coccolithophyceae", "Prymnesiophyceae", "Pavlovophyceae", 
-                 "Rappephyceae", "Bolidophyceae", "Chrysophyceae", "Dictyochophyceae", "Eustigmatophyceae", "Pinguiophyceae", "Pelagophyceae", 
-                 "Raphidophyceae", "Synchromophyceae", "Euglenida")  # Classes of interest for analysis
-
 
 #-----------------------------------#
 #-------- Load & Clean data --------#
@@ -87,7 +81,7 @@ total_asvs <- colSums(otu_table(v9.ice))  # Sum the ASVs across each site
 
 # Create subsets of data for specific analysis
 v9.ice.emc <- subset_taxa(v9.ice, R8 %in% emc.genus)  # Subset for specific genera (e.g., Pseudo-nitzschia)
-v9.ice.emc.tot <- subset_taxa(v9.ice, R5 %in% emc.classes)  # Subset for specific classes of interest
+v9.ice.emc.tot <- subset_taxa(v9.ice, R5 %in% )  # Subset for specific classes of interest
 
 # Dataframe
 v9.ice.df <- data.frame(tax_table(v9.ice.emc))  # Convert the taxonomic table for Pseudo-nitzschia to a data frame
@@ -132,33 +126,67 @@ print(sample_sums_df)
 #-----------------------------------#
 
 #----------- Bubble plot -----------#
-# Showing Pseudo-nitzschia ASVs per site. 
-
-#Make new factor to keep year and site separate#
-# Step 1: Create a new factor in sample_data combining "siteID" and "year"
+#-- Make new factor to keep year and site separate ---#
+# Create a new factor in sample_data combining "siteID" and "year"
 sample_data(v9.ice.emc)$site_year <- with(sample_data(v9.ice.emc), paste(siteID, year, sep = "_"))
 
-# Step 2: Merge samples using the new "site_year" factor
+# Merge samples using the new "site_year" factor
 v9.ice.emc_mrg <- merge_samples(v9.ice.emc, "site_year")
 
 # Optionally, view the sample_data to confirm merging
 sample_data(v9.ice.emc_mrg)
 
-# Step 3: Ensure that the sample data includes site information
+# Ensure that the sample data includes site information
 site_info <- data.frame(sample_data(v9.ice.emc_mrg))
 
-# Get a palette from colorbrewer
-library(RColorBrewer)
-n <- length(unique(site_info$siteID))
-palette <- colorRampPalette(brewer.pal(8, "Dark2"))(n)  # Generate colors for each siteID
+# Create a dataframe that includes taxonomic information for Pseudo-nitzschia
+pseudo_nitzschia_taxa <- data.frame(tax_table(v9.ice.emc_mrg))
+
+# Extract the relevant abundance data for Pseudo-nitzschia
+pseudo_nitzschia_abundance <- data.frame(otu_table(v9.ice.emc_mrg))
+
+# Combine Abundance with SiteID
+pseudo_nitzschia_detection <- cbind(site_info, pseudo_nitzschia_abundance)
+pseudo_nitzschia_detection$siteID <- rownames(pseudo_nitzschia_detection)
+
+# Ensure there's a "siteID" column in the site_info
+pseudo_nitzschia_detection <- pseudo_nitzschia_detection %>%
+  select(siteID, everything())  # Assuming "siteID" is the column name for your sites
+
+# Step 2: Summarize Abundance Data by siteID and ASV
+# Melt the dataframe to have siteID, ASV, and Abundance in long format
+
+colnames(pseudo_nitzschia_detection) <- sub(
+  pattern = "CGCCCGTCGCACCTACCGATTGAATGGTCCGGTGAAGCCTCGGGATTGTGGCTGGTTTCCTTTATTGGAATCTGACCACGAGAACCTGTCTAAACCTTATCATTTAGAGGAAGGTGAAGTCGTAACAAGGTTTCC", 
+  replacement = "ASV1", 
+  colnames(pseudo_nitzschia_detection)
+)
+
+colnames(pseudo_nitzschia_detection) <- sub(
+  pattern = "CGCCCGTCGCACCTACCGATTGAATGGTCCGGTGAAGCCTCGGGATTGTGGTTGGTTTCCTTTATTGGAATCTGACCACGAGAACCTGTCTAAACCTTATCATTTAGAGGAAGGTGAAGTCGTAACAAGGTTTCC", 
+  replacement = "ASV2", 
+  colnames(pseudo_nitzschia_detection)
+)
+
+melted_data <- pseudo_nitzschia_detection %>%
+  pivot_longer(
+    cols = starts_with("ASV"),   # Assuming your ASV columns start with "ASV"
+    names_to = "ASV", 
+    values_to = "Abundance"
+  )
 
 # Generate the bubble plot
-bubble_plot <- ggplot(site_info, aes(x = siteID, y = year, size = Pseudo_ASVs, color = siteID)) +
-  geom_point(alpha = 0.7) +
-  scale_color_manual(values = palette) +
-  scale_size(range = c(3, 15)) +
-  labs(title = "Pseudo-nitzschia ASVs per Site and Year", x = "Site ID", y = "Year", size = "ASVs") +
-  theme_minimal()
+bubble_plot <- ggplot(melted_data, aes(x = siteID, y = ASV, size = Abundance)) +
+  geom_point(alpha = 0.6) +
+  scale_size_area(max_size = 10) +  # Adjust max_size for bubble scaling
+  labs(
+    title = "ASV Abundance at Each Site",
+    x = "Site ID",
+    y = "ASV",
+    size = "Abundance"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 print(bubble_plot)
 
